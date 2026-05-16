@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>CoinCrush</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;min-height:100vh;background:#080c18;font-family:'Segoe UI',sans-serif;color:#fff;overflow-x:hidden;touch-action:manipulation;user-select:none;-webkit-user-select:none;}
+
+/* TOAST */
+#toast{position:fixed;top:18px;left:50%;transform:translateX(-50%);padding:10px 24px;border-radius:30px;font-weight:700;font-size:14px;z-index:9999;display:none;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,0.4);}
+
+/* POPUP */
+#popup-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:8000;display:none;align-items:center;justify-content:center;padding:20px;}
+#popup-box{background:#1a2035;border-radius:20px;padding:28px 24px;width:100%;max-width:340px;border:1px solid #2a3550;text-align:center;}
+
+/* SCREENS */
+.screen{display:none;max-width:430px;margin:0 auto;padding:12px 12px;}
+.screen.active{display:block;}
+
+/* BUTTONS */
+.btn-main{width:100%;padding:14px;background:linear-gradient(135deg,#F7931A,#e07b10);border:none;border-radius:14px;color:#fff;font-size:16px;font-weight:800;cursor:pointer;margin-bottom:10px;letter-spacing:0.5px;}
+.btn-blue{width:100%;padding:13px;background:linear-gradient(135deg,#627EEA,#4a5fc7);border:none;border-radius:14px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;}
+.btn-outline{width:100%;padding:12px;background:transparent;border:1.5px solid #2a3550;border-radius:14px;color:#94a3b8;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:10px;}
+.btn-green{width:100%;padding:13px;background:linear-gradient(135deg,#26A17B,#1a7a5c);border:none;border-radius:14px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;}
+.btn-small{padding:8px 18px;border:none;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;}
+
+/* CARDS */
+.card{background:#111827;border-radius:14px;border:1px solid #1e2a40;padding:14px;}
+
+/* GRID */
+#game-grid{display:grid;gap:3px;background:#0a0f1e;border-radius:12px;padding:4px;border:1px solid #1e3a5f;position:relative;touch-action:none;}
+.cell{aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.03);border:1px solid transparent;transition:transform 0.1s,background 0.1s;position:relative;}
+.cell.selected{background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.5);transform:scale(1.1);z-index:10;}
+.cell.matched{animation:cellPop 0.35s ease forwards;}
+.cell.hint{animation:hintPulse 0.6s ease infinite;}
+.coin{width:85%;height:85%;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;border:2px solid;pointer-events:none;position:relative;overflow:hidden;}
+.coin::after{content:'';position:absolute;top:15%;left:20%;width:30%;height:25%;background:rgba(255,255,255,0.35);border-radius:50%;transform:rotate(-30deg);}
+
+/* LIVES */
+.life{font-size:18px;transition:transform 0.3s;}
+.life.lost{opacity:0.2;transform:scale(0.8);}
+
+/* PROGRESS */
+.progress-bar{height:8px;background:#1e2a40;border-radius:99px;overflow:hidden;margin:6px 0;}
+.progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#627EEA,#26A17B);transition:width 0.5s ease;}
+
+/* TIMER */
+#timer-bar{height:6px;background:#1e2a40;border-radius:99px;overflow:hidden;}
+#timer-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#26A17B,#F7931A);transition:width 1s linear;}
+
+/* PARTICLES */
+.particle{position:absolute;border-radius:50%;pointer-events:none;animation:pFly 0.9s ease forwards;}
+
+/* ADMIN */
+.admin-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #1e2a40;}
+
+@keyframes cellPop{0%{transform:scale(1)}40%{transform:scale(1.3)}100%{transform:scale(0);opacity:0}}
+@keyframes pFly{0%{opacity:1;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(var(--tx),var(--ty)) scale(0.3)}}
+@keyframes hintPulse{0%,100%{box-shadow:0 0 0 0 rgba(247,147,26,0.5)}50%{box-shadow:0 0 0 6px rgba(247,147,26,0)}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@keyframes shimmer{0%{opacity:0.6}50%{opacity:1}100%{opacity:0.6}}
+@keyframes liveLost{0%{transform:scale(1)}50%{transform:scale(1.4)}100%{transform:scale(0.8);opacity:0.2}}
+@keyframes scoreUp{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-40px)}}
+</style>
+</head>
+<body>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- POPUP OVERLAY -->
+<div id="popup-overlay">
+  <div id="popup-box">
+    <div id="popup-icon" style="font-size:48px;margin-bottom:12px"></div>
+    <div id="popup-title" style="font-size:20px;font-weight:800;margin-bottom:8px"></div>
+    <div id="popup-msg" style="color:#94a3b8;font-size:14px;margin-bottom:20px;line-height:1.6"></div>
+    <div id="popup-btns"></div>
+  </div>
+</div>
+
+<!-- MENU SCREEN -->
+<div class="screen active" id="screen-menu">
+  <div style="text-align:center;padding:20px 0 16px;">
+    <div style="display:flex;justify-content:center;gap:6px;margin-bottom:12px;" id="menu-coins"></div>
+    <div style="font-size:36px;font-weight:900;background:linear-gradient(135deg,#F7931A,#627EEA,#26A17B);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-1px;">CoinCrush</div>
+    <div style="color:#475569;font-size:12px;margin-top:2px;">Match • Earn • Withdraw 🚀</div>
+  </div>
+
+  <!-- Stats -->
+  <div class="card" style="display:flex;justify-content:space-around;margin-bottom:12px;">
+    <div style="text-align:center;"><div style="color:#64748b;font-size:10px;letter-spacing:1px;">POINTS</div><div id="menu-pts" style="color:#26A17B;font-weight:800;font-size:20px;">0</div></div>
+    <div style="text-align:center;"><div style="color:#64748b;font-size:10px;letter-spacing:1px;">LEVEL</div><div id="menu-lvl" style="color:#F7931A;font-weight:800;font-size:20px;">1</div></div>
+    <div style="text-align:center;"><div style="color:#64748b;font-size:10px;letter-spacing:1px;">LIVES</div><div id="menu-lives" style="font-size:20px;">❤️❤️❤️❤️❤️</div></div>
+  </div>
+
+  <!-- Daily limit -->
+  <div class="card" style="margin-bottom:12px;display:flex;align-items:center;gap:12px;">
+    <div style="font-size:28px;">🎮</div>
+    <div style="flex:1;">
+      <div style="font-weight:700;font-size:14px;">Daily Levels</div>
+      <div style="color:#64748b;font-size:12px;" id="daily-info">0/15 played today</div>
+      <div class="progress-bar"><div class="progress-fill" id="daily-bar" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <!-- Daily reward -->
+  <div id="daily-reward-card" class="card" style="margin-bottom:12px;background:linear-gradient(135deg,#1a2e1a,#0f2010);border-color:#16a34a;cursor:pointer;display:flex;align-items:center;gap:12px;">
+    <div style="font-size:28px;">🎁</div>
+    <div><div style="color:#4ade80;font-weight:700;font-size:14px;">Daily Login Reward!</div><div id="daily-bonus-txt" style="color:#86efac;font-size:12px;">Tap to claim</div></div>
+  </div>
+
+  <button class="btn-main" id="btn-play">🚀 Play Now</button>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
+    <button class="btn-outline" id="btn-withdraw" style="margin:0;font-size:12px;">💸 Withdraw</button>
+    <button class="btn-outline" id="btn-leaderboard" style="margin:0;font-size:12px;">🏆 Ranks</button>
+    <button class="btn-outline" id="btn-admin-login" style="margin:0;font-size:12px;">⚙️ Admin</button>
+  </div>
+
+  <!-- Payout info -->
+  <div class="card" style="margin-bottom:12px;">
+    <div style="color:#F7931A;font-weight:700;font-size:13px;margin-bottom:8px;">💰 How to Earn:</div>
+    <div style="color:#94a3b8;font-size:12px;line-height:1.9;">
+      • Play 15 levels/day<br/>
+      • Earn 5000 points = $0.05<br/>
+      • Every 5 levels = bonus points<br/>
+      • Complete 15 levels → Withdraw!<br/>
+      • Supports: BTC, ETH, DOGE, LTC, TRX, DASH, ZEC, DGB
+    </div>
+  </div>
+</div>
+
+<!-- GAME SCREEN -->
+<div class="screen" id="screen-game">
+  <!-- Header -->
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+    <button class="btn-small" id="btn-back" style="background:#1e2a40;color:#94a3b8;">← Menu</button>
+    <div style="flex:1;text-align:center;">
+      <div id="level-title" style="font-weight:800;color:#627EEA;font-size:14px;"></div>
+    </div>
+    <div id="lives-display" style="font-size:16px;"></div>
+  </div>
+
+  <!-- Stats row -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-bottom:8px;">
+    <div class="card" style="padding:8px;text-align:center;">
+      <div style="color:#64748b;font-size:9px;letter-spacing:1px;">SCORE</div>
+      <div id="g-score" style="color:#26A17B;font-weight:800;font-size:15px;">0</div>
+    </div>
+    <div class="card" style="padding:8px;text-align:center;">
+      <div style="color:#64748b;font-size:9px;letter-spacing:1px;">MOVES</div>
+      <div id="g-moves" style="color:#F7931A;font-weight:800;font-size:15px;">0</div>
+    </div>
+    <div class="card" style="padding:8px;text-align:center;">
+      <div style="color:#64748b;font-size:9px;letter-spacing:1px;">COMBO</div>
+      <div id="g-combo" style="color:#627EEA;font-weight:800;font-size:15px;">x1</div>
+    </div>
+    <div class="card" style="padding:8px;text-align:center;">
+      <div style="color:#64748b;font-size:9px;letter-spacing:1px;">TIME</div>
+      <div id="g-time" style="color:#EF0027;font-weight:800;font-size:15px;">60</div>
+    </div>
+  </div>
+
+  <!-- Timer bar -->
+  <div id="timer-bar" style="margin-bottom:6px;"><div id="timer-fill" style="width:100%;"></div></div>
+
+  <!-- Progress -->
+  <div style="display:flex;justify-content:space-between;font-size:10px;color:#64748b;margin-bottom:3px;">
+    <span id="g-target-txt">Target: 0</span><span id="g-progress-pct">0%</span>
+  </div>
+  <div class="progress-bar" style="margin-bottom:8px;"><div class="progress-fill" id="g-progress-bar" style="width:0%"></div></div>
+
+  <!-- Grid -->
+  <div id="game-grid"></div>
+
+  <!-- Bottom buttons -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+    <button class="btn-outline" id="btn-ad-moves" style="margin:0;font-size:12px;">📺 +5 Moves (Ad)</button>
+    <button class="btn-outline" id="btn-ad-time" style="margin:0;font-size:12px;">📺 +30s (Ad)</button>
+  </div>
+</div>
+
+<!-- WIN SCREEN -->
+<div class="screen" id="screen-win">
+  <div style="text-align:center;padding:30px 16px;">
+    <div style="font-size:64px;margin-bottom:10px;animation:float 2s ease-in-out infinite;">🏆</div>
+    <div style="font-size:28px;font-weight:900;background:linear-gradient(135deg,#F7931A,#ffd700);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px;">LEVEL COMPLETE!</div>
+    <div id="win-level" style="color:#64748b;font-size:14px;margin-bottom:20px;"></div>
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-around;">
+        <div><div style="color:#64748b;font-size:11px;">Score</div><div id="win-score" style="color:#26A17B;font-weight:800;font-size:22px;"></div></div>
+        <div><div style="color:#64748b;font-size:11px;">Points Earned</div><div id="win-pts" style="color:#F7931A;font-weight:800;font-size:22px;"></div></div>
+        <div><div style="color:#64748b;font-size:11px;">Stars</div><div id="win-stars" style="font-size:22px;"></div></div>
+      </div>
+    </div>
+    <div id="win-milestone" class="card" style="margin-bottom:16px;display:none;background:linear-gradient(135deg,#1a2e1a,#0f2010);border-color:#26A17B;">
+      <div style="color:#4ade80;font-weight:800;font-size:15px;margin-bottom:4px;">🎉 Milestone Bonus!</div>
+      <div id="win-milestone-txt" style="color:#86efac;font-size:13px;"></div>
+    </div>
+    <div id="win-ad-card" class="card" style="margin-bottom:14px;border-color:#7c3aed;background:#1a1535;">
+      <div style="color:#c4b5fd;font-weight:700;font-size:13px;margin-bottom:8px;">📺 Watch Ad = 2× Points!</div>
+      <button class="btn-blue" id="btn-win-ad" style="margin:0;">Watch Ad — Double Reward</button>
+    </div>
+    <button class="btn-main" id="btn-next-level">▶ Next Level</button>
+    <button class="btn-outline" id="btn-win-menu">← Menu</button>
+  </div>
+</div>
+
+<!-- LOSE SCREEN -->
+<div class="screen" id="screen-lose">
+  <div style="text-align:center;padding:30px 16px;">
+    <div style="font-size:60px;margin-bottom:10px;">💔</div>
+    <div style="font-size:26px;font-weight:900;color:#EF0027;margin-bottom:6px;">GAME OVER!</div>
+    <div id="lose-msg" style="color:#64748b;font-size:14px;margin-bottom:20px;"></div>
+    <div class="card" style="margin-bottom:16px;">
+      <div id="lose-lives" style="font-size:24px;margin-bottom:6px;"></div>
+      <div id="lose-lives-txt" style="color:#64748b;font-size:13px;"></div>
+    </div>
+    <div id="lose-ad-card" class="card" style="margin-bottom:14px;border-color:#7c3aed;background:#1a1535;">
+      <div style="color:#c4b5fd;font-weight:700;font-size:13px;margin-bottom:8px;">💪 Watch Ad = Continue!</div>
+      <button class="btn-blue" id="btn-lose-ad">📺 Watch Ad — Get +5 Moves</button>
+    </div>
+    <button class="btn-main" id="btn-retry">🔄 Retry Level</button>
+    <button class="btn-outline" id="btn-lose-menu">← Menu</button>
+  </div>
+</div>
+
+<!-- WITHDRAW SCREEN -->
+<div class="screen" id="screen-withdraw">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+    <button class="btn-small" id="btn-withdraw-back" style="background:#1e2a40;color:#94a3b8;">← Back</button>
+    <div style="font-weight:800;font-size:18px;">💸 Withdraw</div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <div style="color:#64748b;font-size:12px;">Your Balance</div>
+    <div id="w-balance" style="font-size:26px;font-weight:900;color:#26A17B;">0 pts</div>
+    <div id="w-usd" style="color:#64748b;font-size:13px;">≈ $0.0000</div>
+  </div>
+
+  <div id="w-locked" class="card" style="margin-bottom:12px;background:linear-gradient(135deg,#2d0e0e,#1a0808);border-color:#EF002755;">
+    <div style="color:#fca5a5;font-weight:700;font-size:14px;margin-bottom:6px;">🔒 Withdrawal Locked</div>
+    <div id="w-locked-msg" style="color:#94a3b8;font-size:13px;line-height:1.7;"></div>
+    <div class="progress-bar" style="margin-top:10px;"><div class="progress-fill" id="w-lock-progress" style="background:linear-gradient(90deg,#EF0027,#F7931A);"></div></div>
+  </div>
+
+  <div id="w-unlocked" style="display:none;">
+    <div class="card" style="margin-bottom:12px;background:linear-gradient(135deg,#1a2e1a,#0f2010);border-color:#26A17B55;">
+      <div style="color:#4ade80;font-weight:700;font-size:14px;">✅ Withdrawal Unlocked!</div>
+      <div style="color:#86efac;font-size:12px;margin-top:4px;">You've completed 15 levels today!</div>
+    </div>
+
+    <div style="color:#94a3b8;font-size:12px;margin-bottom:8px;font-weight:600;">SELECT COIN:</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px;" id="coin-selector"></div>
+
+    <div style="color:#94a3b8;font-size:12px;margin-bottom:6px;font-weight:600;">FAUCETPAY ADDRESS:</div>
+    <input id="w-address" placeholder="Your FaucetPay wallet address" style="width:100%;background:#111827;border:1px solid #2a3550;border-radius:10px;padding:12px;color:#fff;font-size:13px;outline:none;margin-bottom:12px;"/>
+
+    <div class="card" style="margin-bottom:12px;">
+      <div style="color:#64748b;font-size:11px;margin-bottom:4px;">PAYOUT RATES:</div>
+      <div id="payout-rates" style="font-size:11px;color:#94a3b8;line-height:1.8;"></div>
+    </div>
+
+    <button class="btn-green" id="btn-submit-withdraw">Submit Withdrawal Request</button>
+  </div>
+
+  <div class="card" style="margin-top:12px;">
+    <div style="color:#64748b;font-size:12px;font-weight:600;margin-bottom:8px;">RECENT REQUESTS:</div>
+    <div id="w-history" style="color:#475569;font-size:13px;">No withdrawal history yet</div>
+  </div>
+</div>
+
+<!-- LEADERBOARD SCREEN -->
+<div class="screen" id="screen-leaderboard">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+    <button class="btn-small" id="btn-lb-back" style="background:#1e2a40;color:#94a3b8;">← Back</button>
+    <div style="font-weight:800;font-size:18px;">🏆 Leaderboard</div>
+  </div>
+  <div id="lb-list"></div>
+</div>
+
+<!-- ADMIN LOGIN -->
+<div class="screen" id="screen-admin-login">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px;">
+    <button class="btn-small" id="btn-admin-back" style="background:#1e2a40;color:#94a3b8;">← Back</button>
+    <div style="font-weight:800;font-size:18px;">⚙️ Admin Login</div>
+  </div>
+  <div class="card" style="text-align:center;padding:30px 20px;">
+    <div style="font-size:48px;margin-bottom:16px;">🔐</div>
+    <input id="admin-pass" type="password" placeholder="Admin Password" style="width:100%;background:#0f172a;border:1px solid #2a3550;border-radius:10px;padding:12px;color:#fff;font-size:14px;outline:none;margin-bottom:12px;text-align:center;"/>
+    <button class="btn-main" id="btn-admin-submit" style="margin-bottom:0;">Login</button>
+  </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div class="screen" id="screen-admin">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+    <div style="font-weight:800;font-size:18px;">⚙️ Admin Panel</div>
+    <button class="btn-small" id="btn-admin-logout" style="background:#EF002722;color:#EF0027;border:1px solid #EF002755;">Logout</button>
+  </div>
+
+  <!-- Stats -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+    <div class="card" style="text-align:center;"><div style="color:#64748b;font-size:10px;">TOTAL USERS</div><div id="a-users" style="color:#627EEA;font-weight:800;font-size:22px;">1</div></div>
+    <div class="card" style="text-align:center;"><div style="color:#64748b;font-size:10px;">TOTAL POINTS</div><div id="a-pts" style="color:#26A17B;font-weight:800;font-size:22px;">0</div></div>
+    <div class="card" style="text-align:center;"><div style="color:#64748b;font-size:10px;">PENDING WITHDRAWALS</div><div id="a-pending" style="color:#F7931A;font-weight:800;font-size:22px;">0</div></div>
+    <div class="card" style="text-align:center;"><div style="color:#64748b;font-size:10px;">TOTAL PAID</div><div id="a-paid" style="color:#EF0027;font-weight:800;font-size:22px;">$0</div></div>
+  </div>
+
+  <!-- Pending Withdrawals -->
+  <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:#F7931A;">📋 Pending Withdrawals:</div>
+  <div id="a-withdrawals" class="card" style="margin-bottom:12px;"></div>
+
+  <!-- User Management -->
+  <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:#627EEA;">👥 User Management:</div>
+  <div class="card" style="margin-bottom:12px;">
+    <div class="admin-row">
+      <div><div style="font-weight:600;font-size:13px;">Current User</div><div id="a-user-info" style="color:#64748b;font-size:12px;"></div></div>
+      <div style="text-align:right;"><div id="a-user-pts" style="color:#26A17B;font-weight:700;"></div></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <input id="a-adjust-pts" type="number" placeholder="Points" style="flex:1;background:#0f172a;border:1px solid #2a3550;border-radius:8px;padding:8px;color:#fff;font-size:13px;outline:none;"/>
+      <button class="btn-small" id="btn-add-pts" style="background:#26A17B;color:#fff;">Add</button>
+      <button class="btn-small" id="btn-remove-pts" style="background:#EF0027;color:#fff;">Remove</button>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:#26A17B;">⚙️ Game Settings:</div>
+  <div class="card">
+    <div class="admin-row"><span style="font-size:13px;">Daily Level Limit</span><span style="color:#F7931A;font-weight:700;">15</span></div>
+    <div class="admin-row"><span style="font-size:13px;">Points per Level</span><span style="color:#F7931A;font-weight:700;">333</span></div>
+    <div class="admin-row"><span style="font-size:13px;">5000 pts = </span><span style="color:#26A17B;font-weight:700;">$0.05</span></div>
+    <div class="admin-row" style="border:none;"><span style="font-size:13px;">Withdrawal After</span><span style="color:#627EEA;font-weight:700;">15 levels</span></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// GAME DATA & STATE
+// ═══════════════════════════════════════════
+const COINS = [
+  {id:'BTC',sym:'₿',color:'#F7931A',dark:'#c46e0a'},
+  {id:'ETH',sym:'Ξ',color:'#627EEA',dark:'#4a5fc7'},
+  {id:'DOGE',sym:'Ð',color:'#C3A634',dark:'#9a7e20'},
+  {id:'LTC',sym:'Ł',color:'#BFBBBB',dark:'#8a8a8a'},
+  {id:'TRX',sym:'T',color:'#EF0027',dark:'#b8001e'},
+  {id:'USDT',sym:'₮',color:'#26A17B',dark:'#1a7a5c'},
+];
+
+const PAYOUT_COINS = [
+  {id:'BTC',name:'Bitcoin',min:5000,rate:'1000 pts = 0.000001 BTC'},
+  {id:'ETH',name:'Ethereum',min:8000,rate:'1000 pts = 0.00001 ETH'},
+  {id:'DOGE',name:'Dogecoin',min:5000,rate:'1000 pts = 0.01 DOGE'},
+  {id:'LTC',name:'Litecoin',min:8000,rate:'1000 pts = 0.000005 LTC'},
+  {id:'TRX',name:'TRON',min:6000,rate:'1000 pts = 0.05 TRX'},
+  {id:'DASH',name:'Dash',min:7000,rate:'1000 pts = 0.000005 DASH'},
+  {id:'ZEC',name:'Zcash',min:7000,rate:'1000 pts = 0.000005 ZEC'},
+  {id:'DGB',name:'DigiByte',min:5000,rate:'1000 pts = 0.1 DGB'},
+];
+
+// Generate 500 levels
+function genLevels(){
+  const lvls=[];
+  for(let i=1;i<=500;i++){
+    let stage,coins,moves,timer,target;
+    if(i<=50){stage='🐣 Beginner';coins=4;moves=30;timer=90;target=300+i*10;}
+    else if(i<=150){stage='📈 Easy';coins=4;moves=26;timer=75;target=600+i*12;}
+    else if(i<=250){stage='🔥 Medium';coins=5;moves=22;timer=60;target=1200+i*15;}
+    else if(i<=350){stage='💎 Hard';coins=5;moves=18;timer=50;target=2000+i*18;}
+    else if(i<=450){stage='🐋 Expert';coins=6;moves=15;timer=40;target=3000+i*20;}
+    else{stage='⛓ Legend';coins=6;moves=12;timer=30;target=4500+i*25;}
+    lvls.push({id:i,stage,coins,moves,timer,target});
+  }
+  return lvls;
+}
+const LEVELS=genLevels();
+
+// STATE
+let state={
+  points:0,
+  currentLevel:1,
+  lives:5,
+  maxLives:5,
+  livesRefillTime:null,
+  dailyPlayed:0,
+  dailyDate:'',
+  dailyRewardClaimed:false,
+  streak:0,
+  withdrawals:[],
+  adWatched:false,
+  selectedCoin:null,
+};
+
+let game={
+  grid:[],
+  selected:null,
+  score:0,
+  moves:0,
+  combo:0,
+  timer:0,
+  timerInt:null,
+  busy:false,
+  adUsed:false,
+  GS:8,
+};
+
+const ADMIN_PASS='admin123';
+const DAILY_LIMIT=15;
+const POINTS_PER_LEVEL=333;
+const MILESTONE_EVERY=5;
+
+// ═══════════════════════════════════════════
+// STORAGE
+// ═══════════════════════════════════════════
+function save(){try{localStorage.setItem('cc_state',JSON.stringify(state));}catch{}}
+function load(){try{const d=localStorage.getItem('cc_state');if(d)state={...state,...JSON.parse(d)};}catch{}}
+
+// ═══════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════
+function $(id){return document.getElementById(id);}
+function showToast(msg,color='#26A17B',dur=2000){
+  const t=$('toast');t.textContent=msg;t.style.background=color;t.style.display='block';
+  setTimeout(()=>t.style.display='none',dur);
+}
+
+function showPopup(icon,title,msg,btns){
+  $('popup-icon').textContent=icon;
+  $('popup-title').textContent=title;
+  $('popup-msg').innerHTML=msg;
+  $('popup-btns').innerHTML='';
+  btns.forEach(b=>{
+    const el=document.createElement('button');
+    el.textContent=b.text;el.className=b.cls||'btn-outline';
+    el.style.marginBottom='8px';
+    el.onclick=()=>{hidePopup();b.fn();};
+    $('popup-btns').appendChild(el);
+  });
+  $('popup-overlay').style.display='flex';
+}
+function hidePopup(){$('popup-overlay').style.display='none';}
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  $(id).classList.add('active');
+}
+
+function checkDaily(){
+  const today=new Date().toDateString();
+  if(state.dailyDate!==today){
+    state.dailyDate=today;
+    state.dailyPlayed=0;
+    state.dailyRewardClaimed=false;
+    save();
+  }
+}
+
+// ═══════════════════════════════════════════
+// MENU
+// ═══════════════════════════════════════════
+function renderMenu(){
+  checkDaily();
+  $('menu-pts').textContent=state.points.toLocaleString();
+  $('menu-lvl').textContent=state.currentLevel;
+  
+  // Lives
+  let livesHTML='';
+  for(let i=0;i<state.maxLives;i++)livesHTML+=`<span class="life${i>=state.lives?' lost':''}">❤️</span>`;
+  $('menu-lives').innerHTML=livesHTML;
+
+  // Daily
+  const pct=(state.dailyPlayed/DAILY_LIMIT)*100;
+  $('daily-info').textContent=`${state.dailyPlayed}/${DAILY_LIMIT} played today`;
+  $('daily-bar').style.width=pct+'%';
+
+  // Daily reward
+  const bonus=50+state.streak*10;
+  $('daily-bonus-txt').textContent=state.dailyRewardClaimed?'Already claimed today!':(`Tap → +${bonus} points (Day ${state.streak+1})`);
+  $('daily-reward-card').style.opacity=state.dailyRewardClaimed?0.5:1;
+
+  // Menu coins animation
+  const mc=$('menu-coins');mc.innerHTML='';
+  COINS.forEach((c,i)=>{
+    const d=document.createElement('div');
+    d.style.cssText=`animation:float ${1.3+i*0.2}s ease-in-out infinite;animation-delay:${i*0.12}s;`;
+    d.innerHTML=`<div style="width:32px;height:32px;border-radius:50%;background:radial-gradient(circle at 35% 35%,${c.color}ee,${c.color}88);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#fff;border:2px solid ${c.color};">${c.sym}</div>`;
+    mc.appendChild(d);
+  });
+}
+
+// ═══════════════════════════════════════════
+// GRID ENGINE
+// ═══════════════════════════════════════════
+function randCoin(n){return COINS[Math.floor(Math.random()*n)].id;}
+
+function makeGrid(coinCount){
+  const g=[];const n=coinCount||4;
+  for(let r=0;r<game.GS;r++){
+    const row=[];
+    for(let c=0;c<game.GS;c++){
+      let id;let tries=0;
+      do{id=randCoin(n);tries++;}while(tries<20&&(
+        (c>=2&&row[c-1]===id&&row[c-2]===id)||
+        (r>=2&&g[r-1]&&g[r-1][c]===id&&g[r-2]&&g[r-2][c]===id)
+      ));
+      row.push(id);
+    }
+    g.push(row);
+  }
+  return g;
+}
+
+function findMatches(g){
+  const m=Array.from({length:game.GS},()=>Array(game.GS).fill(false));
+  for(let r=0;r<game.GS;r++)
+    for(let c=0;c<game.GS-2;c++)
+      if(g[r][c]&&g[r][c]===g[r][c+1]&&g[r][c]===g[r][c+2]){
+        let e=c+2;while(e+1<game.GS&&g[r][e+1]===g[r][c])e++;
+        for(let k=c;k<=e;k++)m[r][k]=true;
+      }
+  for(let c=0;c<game.GS;c++)
+    for(let r=0;r<game.GS-2;r++)
+      if(g[r][c]&&g[r][c]===g[r+1][c]&&g[r][c]===g[r+2][c]){
+        let e=r+2;while(e+1<game.GS&&g[e+1][c]===g[r][c])e++;
+        for(let k=r;k<=e;k++)m[k][c]=true;
+      }
+  return m;
+}
+
+function countM(m){return m.flat().filter(Boolean).length;}
+
+function applyGravity(g,coinCount){
+  const ng=g.map(r=>[...r]);const n=coinCount||4;
+  for(let c=0;c<game.GS;c++){
+    let e=game.GS-1;
+    for(let r=game.GS-1;r>=0;r--){if(ng[r][c]!==null){ng[e][c]=ng[r][c];if(e!==r)ng[r][c]=null;e--;}}
+    for(let r=e;r>=0;r--)ng[r][c]=randCoin(n);
+  }
+  return ng;
+}
+
+function removeM(g,m){return g.map((row,r)=>row.map((cell,c)=>m[r][c]?null:cell));}
+
+// ═══════════════════════════════════════════
+// RENDER GRID
+// ═══════════════════════════════════════════
+function renderGrid(){
+  const el=$('game-grid');
+  const cellSize=Math.floor((Math.min(window.innerWidth,430)-32)/game.GS);
+  el.style.gridTemplateColumns=`repeat(${game.GS},1fr)`;
+  el.innerHTML='';
+  game.grid.forEach((row,r)=>{
+    row.forEach((coinId,c)=>{
+      const cell=document.createElement('div');
+      cell.className='cell';
+      cell.dataset.r=r;cell.dataset.c=c;
+      if(game.selected&&game.selected[0]===r&&game.selected[1]===c)cell.classList.add('selected');
+      if(coinId){
+        const coin=COINS.find(x=>x.id===coinId);
+        cell.innerHTML=`<div class="coin" style="background:radial-gradient(circle at 35% 35%,${coin.color}ee,${coin.color}88);border-color:${coin.color};font-size:${cellSize*0.32}px;color:#fff;box-shadow:0 2px 8px ${coin.color}44;">${coin.sym}</div>`;
+      }
+      // Touch & click
+      cell.addEventListener('pointerdown',e=>{e.preventDefault();handleTap(r,c);},{passive:false});
+      el.appendChild(cell);
+    });
+  });
+}
+
+function spawnParticles(r,c,coinId){
+  const el=$('game-grid');
+  const rect=el.getBoundingClientRect();
+  const cellW=rect.width/game.GS;
+  const coin=COINS.find(x=>x.id===coinId);
+  for(let i=0;i<8;i++){
+    const p=document.createElement('div');
+    p.className='particle';
+    p.style.cssText=`width:7px;height:7px;background:${coin.color};left:${(c+0.5)*cellW}px;top:${(r+0.5)*cellW}px;box-shadow:0 0 4px ${coin.color};--tx:${(Math.random()-0.5)*60}px;--ty:${(Math.random()-0.8)*60}px;`;
+    el.appendChild(p);
+    setTimeout(()=>p.remove(),900);
+  }
+}
+
+function showScorePopup(score,r,c){
+  const el=$('game-grid');
+  const cellW=el.getBoundingClientRect().width/game.GS;
+  const pop=document.createElement('div');
+  pop.style.cssText=`position:absolute;left:${(c+0.5)*cellW-20}px;top:${r*cellW}px;color:#FFD700;font-weight:800;font-size:14px;pointer-events:none;animation:scoreUp 1s ease forwards;z-index:100;`;
+  pop.textContent='+'+score;
+  el.appendChild(pop);
+  setTimeout(()=>pop.remove(),1000);
+}
+
+// ═══════════════════════════════════════════
+// GAME LOGIC
+// ═══════════════════════════════════════════
+async function processMatches(coinCount,cb=0){
+  const m=findMatches(game.grid);
+  const cnt=countM(m);
+  if(cnt===0){game.combo=0;game.busy=false;updateGameUI();return;}
+  
+  game.combo=cb+1;
+  const pts=Math.round(cnt*50*Math.pow(1.4,cb));
+  game.score+=pts;
+  
+  // Particles & popups
+  for(let r=0;r<game.GS;r++)
+    for(let c=0;c<game.GS;c++)
+      if(m[r][c]){spawnParticles(r,c,game.grid[r][c]);if(c===Math.floor(game.GS/2))showScorePopup(pts,r,c);}
+  
+  if(cb>0)showToast(`🔥 ${cb+1}x COMBO! +${pts}`,'#F7931A',1500);
+  
+  // Mark matched cells
+  for(let r=0;r<game.GS;r++)for(let c=0;c<game.GS;c++){
+    if(m[r][c]){const cell=document.querySelector(`[data-r="${r}"][data-c="${c}"]`);if(cell)cell.classList.add('matched');}
+  }
+  
+  updateGameUI();
+  await sleep(400);
+  
+  game.grid=removeM(game.grid,m);
+  await sleep(80);
+  game.grid=applyGravity(game.grid,coinCount);
+  renderGrid();
+  await sleep(280);
+  return processMatches(coinCount,cb+1);
+}
+
+function handleTap(r,c){
+  if(game.busy)return;
+  if(game.moves<=0)return;
+  
+  if(!game.selected){
+    game.selected=[r,c];
+    renderGrid();
+    return;
+  }
+  
+  const[sr,sc]=game.selected;
+  game.selected=null;
+  
+  if(sr===r&&sc===c){renderGrid();return;}
+  
+  const dr=Math.abs(r-sr),dc=Math.abs(c-sc);
+  if(dr+dc!==1){game.selected=[r,c];renderGrid();return;}
+  
+  // Try swap
+  const ng=game.grid.map(row=>[...row]);
+  [ng[sr][sc],ng[r][c]]=[ng[r][c],ng[sr][sc]];
+  
+  if(countM(findMatches(ng))===0){
+    showToast('No match! Try again','#EF0027',1000);
+    game.selected=[r,c];
+    renderGrid();
+    return;
+  }
+  
+  game.moves--;
+  game.busy=true;
+  game.grid=ng;
+  
+  const lv=LEVELS[state.currentLevel-1];
+  renderGrid();
+  processMatches(lv.coins,0).then(()=>{
+    game.busy=false;
+    updateGameUI();
+    checkWinLose();
+  });
+}
+
+function checkWinLose(){
+  const lv=LEVELS[state.currentLevel-1];
+  if(game.score>=lv.target){
+    clearInterval(game.timerInt);
+    setTimeout(()=>showWin(),400);
+  }else if(game.moves<=0||game.timer<=0){
+    clearInterval(game.timerInt);
+    setTimeout(()=>showLose(),400);
+  }
+}
+
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+function updateGameUI(){
+  const lv=LEVELS[state.currentLevel-1];
+  $('g-score').textContent=game.score.toLocaleString();
+  $('g-moves').textContent=game.moves;
+  $('g-moves').style.color=game.moves<=5?'#EF0027':'#F7931A';
+  $('g-combo').textContent='x'+Math.max(game.combo,1);
+  $('g-time').textContent=game.timer;
+  $('g-time').style.color=game.timer<=10?'#EF0027':'#94a3b8';
+  $('g-target-txt').textContent='Target: '+lv.target.toLocaleString();
+  const pct=Math.min(game.score/lv.target*100,100);
+  $('g-progress-bar').style.width=pct+'%';
+  $('g-progress-pct').textContent=Math.round(pct)+'%';
+  const tpct=game.timer/lv.timer*100;
+  $('timer-fill').style.width=tpct+'%';
+  $('timer-fill').style.background=game.timer<=10?'linear-gradient(90deg,#EF0027,#F7931A)':'linear-gradient(90deg,#26A17B,#627EEA)';
+}
+
+// ═══════════════════════════════════════════
+// START GAME
+// ═══════════════════════════════════════════
+function startGame(){
+  checkDaily();
+  
+  if(state.lives<=0){
+    showPopup('💔','No Lives Left!','Your lives are empty!\nWait for refill or watch an ad to get 1 life.',[
+      {text:'📺 Watch Ad — Get 1 Life',cls:'btn-blue',fn:()=>{watchAd(()=>{state.lives=Math.min(state.lives+1,state.maxLives);save();startGame();});}},
+      {text:'← Back',cls:'btn-outline',fn:()=>{}}
+    ]);
+    return;
+  }
+  
+  if(state.dailyPlayed>=DAILY_LIMIT){
+    showPopup('🎮','Daily Limit Reached!',`You've played ${DAILY_LIMIT} levels today!\nCome back tomorrow for more levels and rewards.`,[
+      {text:'OK',cls:'btn-outline',fn:()=>{}}
+    ]);
+    return;
+  }
+  
+  const lv=LEVELS[state.currentLevel-1];
+  game.grid=makeGrid(lv.coins);
+  game.selected=null;
+  game.score=0;
+  game.moves=lv.moves;
+  game.combo=0;
+  game.timer=lv.timer;
+  game.busy=false;
+  game.adUsed=false;
+  
+  $('level-title').textContent=`Lv.${lv.id} — ${lv.stage}`;
+  let livesHTML='';
+  for(let i=0;i<state.maxLives;i++)livesHTML+=`<span style="font-size:14px;opacity:${i<state.lives?1:0.2}">❤️</span>`;
+  $('lives-display').innerHTML=livesHTML;
+  
+  showScreen('screen-game');
+  renderGrid();
+  updateGameUI();
+  
+  // Timer
+  clearInterval(game.timerInt);
+  game.timerInt=setInterval(()=>{
+    game.timer--;
+    updateGameUI();
+    if(game.timer<=0){clearInterval(game.timerInt);if(!game.busy)showLose();}
+  },1000);
+}
+
+// ═══════════════════════════════════════════
+// WIN / LOSE
+// ═══════════════════════════════════════════
+function showWin(){
+  clearInterval(game.timerInt);
+  state.dailyPlayed++;
+  
+  // Points earned
+  const ptsEarned=POINTS_PER_LEVEL;
+  state.points+=ptsEarned;
+  
+  // Check milestone (every 5 levels)
+  const isMilestone=state.dailyPlayed%MILESTONE_EVERY===0;
+  const milestoneBonus=isMilestone?500:0;
+  if(isMilestone)state.points+=milestoneBonus;
+  
+  // Stars
+  const lv=LEVELS[state.currentLevel-1];
+  const pct=game.score/lv.target;
+  const stars=pct>=1?'⭐⭐⭐':pct>=0.7?'⭐⭐':'⭐';
+  
+  save();
+  
+  $('win-level').textContent=`Level ${lv.id} — ${lv.stage}`;
+  $('win-score').textContent=game.score.toLocaleString();
+  $('win-pts').textContent='+'+ptsEarned+(isMilestone?` (+${milestoneBonus} bonus!)`:'');
+  $('win-stars').textContent=stars;
+  
+  if(isMilestone){
+    $('win-milestone').style.display='block';
+    $('win-milestone-txt').textContent=`Every ${MILESTONE_EVERY} levels = +${milestoneBonus} bonus points! 🎉`;
+  }else{
+    $('win-milestone').style.display='none';
+  }
+  
+  $('win-ad-card').style.display=game.adUsed?'none':'block';
+  showScreen('screen-win');
+}
+
+function showLose(){
+  clearInterval(game.timerInt);
+  state.lives=Math.max(state.lives-1,0);
+  save();
+  
+  const reason=game.timer<=0?'Time ran out!':'No moves left!';
+  $('lose-msg').textContent=`${reason} Score: ${game.score.toLocaleString()}`;
+  
+  let livesHTML='';
+  for(let i=0;i<state.maxLives;i++)livesHTML+=`<span style="font-size:22px;opacity:${i<state.lives?1:0.2}">❤️</span>`;
+  $('lives-display').innerHTML=livesHTML;
+  $('lose-lives').innerHTML=livesHTML;
+  $('lose-lives-txt').textContent=state.lives>0?`${state.lives} lives remaining`:'No lives left! Wait or watch ad.';
+  $('lose-ad-card').style.display=game.adUsed?'none':'block';
+  showScreen('screen-lose');
+}
+
+// ═══════════════════════════════════════════
+// ADS (Simulated)
+// ═══════════════════════════════════════════
+function watchAd(cb){
+  showPopup('📺','Rewarded Ad','Watch this short ad to earn your reward!',[
+    {text:'▶ Watch Ad (5s)',cls:'btn-blue',fn:()=>{
+      showToast('Ad playing...','#627EEA',1000);
+      setTimeout(()=>{game.adUsed=true;cb();showToast('🎉 Reward granted!','#26A17B');},1500);
+    }},
+    {text:'Skip',cls:'btn-outline',fn:()=>{}}
+  ]);
+}
+
+// ═══════════════════════════════════════════
+// WITHDRAW
+// ═══════════════════════════════════════════
+function renderWithdraw(){
+  checkDaily();
+  $('w-balance').textContent=state.points.toLocaleString()+' pts';
+  $('w-usd').textContent=`≈ $${(state.points/5000*0.05).toFixed(4)} USD`;
+  
+  const levelsNeeded=DAILY_LIMIT;
+  const done=state.dailyPlayed;
+  const locked=done<levelsNeeded;
+  
+  $('w-locked').style.display=locked?'block':'none';
+  $('w-unlocked').style.display=locked?'none':'block';
+  
+  if(locked){
+    $('w-locked-msg').innerHTML=`Complete <strong style="color:#F7931A">${levelsNeeded} levels</strong> today to unlock withdrawal.<br/>Progress: <strong style="color:#627EEA">${done}/${levelsNeeded}</strong> levels done`;
+    $('w-lock-progress').style.width=(done/levelsNeeded*100)+'%';
+  }
+  
+  // Coin selector
+  const cs=$('coin-selector');cs.innerHTML='';
+  PAYOUT_COINS.forEach(pc=>{
+    const d=document.createElement('div');
+    d.style.cssText=`background:${state.selectedCoin===pc.id?'#1e3a5f':'#111827'};border:1px solid ${state.selectedCoin===pc.id?'#627EEA':'#2a3550'};border-radius:8px;padding:8px;text-align:center;cursor:pointer;`;
+    d.innerHTML=`<div style="font-weight:800;font-size:12px;color:${state.selectedCoin===pc.id?'#627EEA':'#fff'};">${pc.id}</div>`;
+    d.addEventListener('pointerdown',e=>{e.preventDefault();state.selectedCoin=pc.id;renderWithdraw();});
+    cs.appendChild(d);
+  });
+  
+  // Payout rates
+  $('payout-rates').innerHTML=PAYOUT_COINS.map(pc=>`${pc.id}: ${pc.rate} (min: ${pc.min} pts)`).join('<br/>');
+  
+  // History
+  if(state.withdrawals.length===0){
+    $('w-history').textContent='No withdrawal history yet';
+  }else{
+    $('w-history').innerHTML=state.withdrawals.slice(-5).reverse().map(w=>`
+      <div style="padding:8px 0;border-bottom:1px solid #1e2a40;">
+        <div style="display:flex;justify-content:space-between;">
+          <span style="font-weight:600;font-size:13px;">${w.coin}</span>
+          <span style="color:${w.status==='approved'?'#26A17B':w.status==='rejected'?'#EF0027':'#F7931A'};font-size:12px;font-weight:700;">${w.status.toUpperCase()}</span>
+        </div>
+        <div style="color:#64748b;font-size:11px;">${w.pts} pts • ${w.date}</div>
+      </div>
+    `).join('');
+  }
+}
+
+// ═══════════════════════════════════════════
+// LEADERBOARD
+// ═══════════════════════════════════════════
+function renderLeaderboard(){
+  const players=[
+    {name:'CryptoKing',pts:48200,lvl:234,flag:'🇺🇸'},
+    {name:'BTCWhale',pts:41000,lvl:198,flag:'🇬🇧'},
+    {name:'ETHmaxi',pts:38750,lvl:187,flag:'🇩🇪'},
+    {name:'DogeArmy',pts:31200,lvl:156,flag:'🇧🇷'},
+    {name:'SatoshiMaster',pts:28600,lvl:142,flag:'🇯🇵'},
+    {name:'You',pts:state.points,lvl:state.currentLevel,flag:'⭐'},
+  ].sort((a,b)=>b.pts-a.pts);
+  
+  $('lb-list').innerHTML=players.map((p,i)=>`
+    <div style="display:flex;align-items:center;gap:10px;background:${p.name==='You'?'#1e293b':'#111827'};border:1px solid ${p.name==='You'?'#627EEA':'#1e2a40'};border-radius:12px;padding:12px 14px;margin-bottom:8px;">
+      <div style="width:28px;font-weight:800;font-size:16px;color:${['#FFD700','#C0C0C0','#CD7F32'][i]||'#64748b'}">${i<3?['🥇','🥈','🥉'][i]:'#'+(i+1)}</div>
+      <div style="flex:1;"><div style="font-weight:700;font-size:14px;">${p.flag} ${p.name}</div><div style="color:#64748b;font-size:11px;">Level ${p.lvl}</div></div>
+      <div style="color:#26A17B;font-weight:800;font-size:14px;">${p.pts.toLocaleString()}</div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════
+// ADMIN
+// ═══════════════════════════════════════════
+function renderAdmin(){
+  $('a-users').textContent='1';
+  $('a-pts').textContent=state.points.toLocaleString();
+  const pending=state.withdrawals.filter(w=>w.status==='pending');
+  $('a-pending').textContent=pending.length;
+  const paid=state.withdrawals.filter(w=>w.status==='approved').length;
+  $('a-paid').textContent='$'+(paid*0.05).toFixed(2);
+  $('a-user-info').textContent=`Level ${state.currentLevel} • ${state.dailyPlayed} levels today`;
+  $('a-user-pts').textContent=state.points.toLocaleString()+' pts';
+  
+  if(pending.length===0){
+    $('a-withdrawals').innerHTML='<div style="color:#475569;font-size:13px;">No pending withdrawals</div>';
+  }else{
+    $('a-withdrawals').innerHTML=pending.map((w,i)=>`
+      <div class="admin-row">
+        <div><div style="font-weight:600;font-size:13px;">${w.coin} • ${w.pts} pts</div><div style="color:#64748b;font-size:11px;">${w.address.slice(0,20)}... • ${w.date}</div></div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn-small" onclick="approveW(${i})" style="background:#26A17B;color:#fff;">✓</button>
+          <button class="btn-small" onclick="rejectW(${i})" style="background:#EF0027;color:#fff;">✗</button>
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
+function approveW(i){
+  const pending=state.withdrawals.filter(w=>w.status==='pending');
+  const w=pending[i];if(!w)return;
+  const idx=state.withdrawals.indexOf(w);
+  state.withdrawals[idx].status='approved';
+  save();renderAdmin();
+  showToast('✅ Withdrawal approved!','#26A17B');
+}
+
+function rejectW(i){
+  const pending=state.withdrawals.filter(w=>w.status==='pending');
+  const w=pending[i];if(!w)return;
+  const idx=state.withdrawals.indexOf(w);
+  state.withdrawals[idx].status='rejected';
+  state.points+=w.pts; // refund
+  save();renderAdmin();
+  showToast('❌ Withdrawal rejected, points refunded','#EF0027');
+}
+
+// ═══════════════════════════════════════════
+// EVENT LISTENERS
+// ═══════════════════════════════════════════
+function addTap(id,fn){
+  const el=$(id);if(!el)return;
+  el.addEventListener('pointerdown',e=>{e.preventDefault();fn();},{passive:false});
+}
+
+// Menu
+addTap('btn-play',()=>{startGame();});
+addTap('daily-reward-card',()=>{
+  if(state.dailyRewardClaimed){showToast('Already claimed today!','#EF0027');return;}
+  const bonus=50+state.streak*10;
+  state.points+=bonus;state.streak++;state.dailyRewardClaimed=true;
+  save();renderMenu();
+  showToast(`🎁 +${bonus} points! Day ${state.streak} streak!`,'#26A17B');
+});
+addTap('btn-withdraw',()=>{renderWithdraw();showScreen('screen-withdraw');});
+addTap('btn-leaderboard',()=>{renderLeaderboard();showScreen('screen-leaderboard');});
+addTap('btn-admin-login',()=>{showScreen('screen-admin-login');});
+
+// Game
+addTap('btn-back',()=>{clearInterval(game.timerInt);showScreen('screen-menu');renderMenu();});
+addTap('btn-ad-moves',()=>{watchAd(()=>{game.moves+=5;updateGameUI();showToast('+5 Moves added!','#26A17B');});});
+addTap('btn-ad-time',()=>{watchAd(()=>{game.timer+=30;updateGameUI();showToast('+30 seconds added!','#627EEA');});});
+
+// Win
+addTap('btn-next-level',()=>{
+  if(state.currentLevel<500)state.currentLevel++;
+  save();showScreen('screen-menu');renderMenu();
+  setTimeout(()=>startGame(),200);
+});
+addTap('btn-win-menu',()=>{save();showScreen('screen-menu');renderMenu();});
+addTap('btn-win-ad',()=>{watchAd(()=>{state.points+=POINTS_PER_LEVEL;save();$('win-pts').textContent='2× Points Added! 🎉';$('win-ad-card').style.display='none';});});
+
+// Lose
+addTap('btn-retry',()=>{startGame();});
+addTap('btn-lose-menu',()=>{showScreen('screen-menu');renderMenu();});
+addTap('btn-lose-ad',()=>{watchAd(()=>{game.moves+=5;game.timer=Math.max(game.timer,30);clearInterval(game.timerInt);game.timerInt=setInterval(()=>{game.timer--;updateGameUI();if(game.timer<=0){clearInterval(game.timerInt);if(!game.busy)showLose();}},1000);showScreen('screen-game');renderGrid();updateGameUI();});});
+
+// Withdraw
+addTap('btn-withdraw-back',()=>{showScreen('screen-menu');renderMenu();});
+addTap('btn-submit-withdraw',()=>{
+  if(!state.selectedCoin){showToast('Select a coin first!','#EF0027');return;}
+  const addr=$('w-address').value.trim();
+  if(!addr){showToast('Enter FaucetPay address!','#EF0027');return;}
+  const pc=PAYOUT_COINS.find(x=>x.id===state.selectedCoin);
+  if(state.points<pc.min){showToast(`Need ${pc.min} points minimum for ${pc.id}!`,'#EF0027');return;}
+  const pts=pc.min;
+  state.points-=pts;
+  state.withdrawals.push({coin:state.selectedCoin,pts,address:addr,status:'pending',date:new Date().toLocaleDateString()});
+  save();
+  renderWithdraw();
+  showToast('✅ Withdrawal submitted! Admin review in 24h','#26A17B',3000);
+});
+
+// Leaderboard
+addTap('btn-lb-back',()=>{showScreen('screen-menu');renderMenu();});
+
+// Admin
+addTap('btn-admin-back',()=>{showScreen('screen-menu');});
+addTap('btn-admin-submit',()=>{
+  if($('admin-pass').value===ADMIN_PASS){renderAdmin();showScreen('screen-admin');}
+  else showToast('Wrong password!','#EF0027');
+});
+addTap('btn-admin-logout',()=>{showScreen('screen-menu');});
+addTap('btn-add-pts',()=>{
+  const n=parseInt($('a-adjust-pts').value)||0;
+  if(n>0){state.points+=n;save();renderAdmin();showToast(`+${n} points added`,'#26A17B');}
+});
+addTap('btn-remove-pts',()=>{
+  const n=parseInt($('a-adjust-pts').value)||0;
+  if(n>0){state.points=Math.max(state.points-n,0);save();renderAdmin();showToast(`-${n} points removed`,'#EF0027');}
+});
+
+// Popup close on overlay click
+$('popup-overlay').addEventListener('pointerdown',e=>{if(e.target===$('popup-overlay'))hidePopup();});
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+load();
+checkDaily();
+renderMenu();
+showScreen('screen-menu');
+</script>
+</body>
+</html>
